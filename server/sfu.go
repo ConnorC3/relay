@@ -4,6 +4,7 @@ import (
 	"log"
 	"sync"
 
+	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v4"
 )
 
@@ -59,9 +60,47 @@ func (s *SFU) onTrackReceived(peerID string, tr *webrtc.TrackRemote) {
 
 	s.listLock.Lock()
 	s.localTracks[tr.ID()] = trackLocal
+	if peer, ok := s.peers[peerID]; ok {
+		peer.tracks = append(peer.tracks, tr.ID())
+	}
 	s.listLock.Unlock()
 
 	// signalConnections to sync state
+
+	defer s.removeTrack(trackLocal)
+
+	buf := make([]byte, 1500)
+	rtpPkt := &rtp.Packet{}
+
+	for {
+		n, _, err := tr.Read(buf)
+		if err != nil {
+			return
+		}
+
+		if err = rtpPkt.Unmarshal(buf[:n]); err != nil {
+			log.Printf("Failed to unmarshal incoming RTP packet: %v", err)
+			return
+		}
+
+		rtpPkt.Extension = false
+		rtpPkt.Extensions = nil
+
+		if err = trackLocal.WriteRTP(rtpPkt); err != nil {
+			return
+		}
+	}
+
+}
+
+func (s *SFU) removeTrack(t webrtc.TrackLocal) {
+	s.listLock.Lock()
+	defer func() {
+		s.listLock.Unlock()
+		// signalConnections
+	}()
+
+	delete(s.localTracks, t.ID())
 }
 
 func (s *SFU) RemovePeer(peerID string) {
@@ -84,4 +123,8 @@ func (s *SFU) RemovePeer(peerID string) {
 
 	delete(s.peers, peerID)
 	peer.pc.Close()
+}
+
+func (s *SFU) signalConnections() {
+
 }
