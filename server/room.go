@@ -56,7 +56,7 @@ func (r *Room) sendRoomState(c *Client) {
 		},
 	}
 
-	r.send(c, state)
+	r.sendToClient(c.id, state)
 }
 
 func (r *Room) sendPeerID(c *Client) {
@@ -65,7 +65,7 @@ func (r *Room) sendPeerID(c *Client) {
 		"payload": map[string]any{"peer_id": c.id},
 	}
 
-	r.send(c, msg)
+	r.sendToClient(c.id, msg)
 }
 
 func (r *Room) Run() {
@@ -78,6 +78,9 @@ func (r *Room) Run() {
 			// send room state to client
 			r.sendPeerID(client)
 			r.sendRoomState(client)
+
+			// add peer to sfu
+
 			log.Printf("Client id: %s", client.id)
 		case client := <-r.unregister:
 			log.Println("Unregistering client")
@@ -91,7 +94,7 @@ func (r *Room) Run() {
 			case "offer", "answer", "ice_candidate":
 				// forward message to correct target
 				if target, ok := r.clients[msg.Target]; ok {
-					r.send(target, msg)
+					r.sendToClient(target.id, msg)
 				}
 			case "play", "pause", "seek":
 				// sync server-side room state
@@ -122,7 +125,7 @@ func (r *Room) Run() {
 				// sync playback for all room members
 				for id, member := range r.clients {
 					if id != msg.PeerID {
-						r.send(member, msg)
+						r.sendToClient(member.id, msg)
 					}
 				}
 			}
@@ -130,8 +133,13 @@ func (r *Room) Run() {
 	}
 }
 
-// non-blocking send
-func (r *Room) send(c *Client, v any) {
+// Non-blocking send to client with id 'peerID'
+func (r *Room) sendToClient(peerID string, v any) {
+	c, ok := r.clients[peerID]
+	if !ok {
+		return
+	}
+
 	rawBytes, err := json.Marshal(v)
 	if err != nil {
 		log.Printf("Error marshaling message: %v", err)
