@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"sync"
 
@@ -9,7 +10,7 @@ import (
 )
 
 type Peer struct {
-	pc     *webrtc.PeerConnection
+	conn   *webrtc.PeerConnection
 	tracks []string // Track IDs
 }
 
@@ -43,10 +44,10 @@ func (s *SFU) AddPeer(peerID string) {
 	})
 
 	s.listLock.Lock()
-	s.peers[peerID] = &Peer{pc: peerConnection}
+	s.peers[peerID] = &Peer{conn: peerConnection}
 	s.listLock.Unlock()
 
-	// signalConnections to sync state
+	s.signalConnections()
 }
 
 func (s *SFU) onTrackReceived(peerID string, tr *webrtc.TrackRemote) {
@@ -66,6 +67,7 @@ func (s *SFU) onTrackReceived(peerID string, tr *webrtc.TrackRemote) {
 	s.listLock.Unlock()
 
 	// signalConnections to sync state
+	s.signalConnections()
 
 	defer s.removeTrack(trackLocal)
 
@@ -98,6 +100,7 @@ func (s *SFU) removeTrack(t webrtc.TrackLocal) {
 	defer func() {
 		s.listLock.Unlock()
 		// signalConnections
+		s.signalConnections()
 	}()
 
 	delete(s.localTracks, t.ID())
@@ -108,6 +111,7 @@ func (s *SFU) RemovePeer(peerID string) {
 	defer func() {
 		s.listLock.Unlock()
 		// signalConnections
+		s.signalConnections()
 	}()
 
 	// close peer connection and remove all related tracks
@@ -122,9 +126,73 @@ func (s *SFU) RemovePeer(peerID string) {
 	}
 
 	delete(s.peers, peerID)
-	peer.pc.Close()
+	peer.conn.Close()
 }
 
 func (s *SFU) signalConnections() {
+	s.listLock.Lock()
+	defer func() {
+		s.listLock.Unlock()
+		// may need to dispatch keyframe??
+	}()
 
+	for peerID, peer := range s.peers {
+		if peer.conn.ConnectionState() == webrtc.PeerConnectionStateClosed {
+			delete(s.peers, peerID)
+			continue
+		}
+
+		existingSenders := make(map[string]bool)
+		for _, sender := range peer.conn.GetSenders() {
+			if sender.Track() == nil {
+				continue
+			}
+
+			existingSenders[sender.Track().ID()] = true
+
+			if _, ok := s.localTracks[sender.Track().ID()]; !ok {
+				if err := peer.conn.RemoveTrack(sender); err != nil {
+					log.Printf("Error removing track: %v", err)
+					continue
+				}
+			}
+		}
+
+		// Make sure we don't receive tracks (A/V) we are sending
+		for _, receiver := range peer.conn.GetReceivers() {
+			if receiver.Track() == nil {
+				continue
+			}
+
+			existingSenders[receiver.Track().ID()] = true
+		}
+
+		// Add tracks we aren't sending yet to the peerConnection
+		for trackID, track := range s.localTracks {
+			if _, ok := existingSenders[trackID]; !ok {
+				if _, err := peer.conn.AddTrack(track); err != nil {
+					log.Printf("Error adding new sending track: %v", err)
+					continue
+				}
+			}
+		}
+
+		offer, err := peer.conn.CreateOffer(nil)
+		if err != nil {
+			continue
+		}
+
+		if err := peer.conn.SetLocalDescription(offer); err != nil {
+			continue
+		}
+
+		offerJSON, err := json.Marshal(offer)
+		if err != nil {
+			log.Printf("Failed to marshal offer to json: %v", err)
+			continue
+		}
+
+		msg := &Message{Type: "offer", Target: peerID, Payload: offerJSON}
+		s.room.sendToClient(peerID, msg)
+	}
 }

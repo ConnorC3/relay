@@ -25,6 +25,7 @@ type Room struct {
 	register   chan *Client
 	unregister chan *Client
 	broadcast  chan Message
+	sfu        *SFU
 }
 
 func newRoom() *Room {
@@ -80,6 +81,7 @@ func (r *Room) Run() {
 			r.sendRoomState(client)
 
 			// add peer to sfu
+			r.sfu.AddPeer(client.id)
 
 			log.Printf("Client id: %s", client.id)
 		case client := <-r.unregister:
@@ -88,6 +90,7 @@ func (r *Room) Run() {
 			if _, ok := r.clients[client.id]; ok {
 				delete(r.clients, client.id)
 				close(client.send)
+				r.sfu.RemovePeer(client.id)
 			}
 		case msg := <-r.broadcast:
 			switch msg.Type {
