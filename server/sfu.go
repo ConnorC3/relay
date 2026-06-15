@@ -38,6 +38,23 @@ func (s *SFU) AddPeer(peerID string) {
 		}
 	}
 
+	peerConnection.OnICECandidate(func(cand *webrtc.ICECandidate) {
+		if cand == nil {
+			return
+		}
+
+		candidateJSON, err := json.Marshal(cand.ToJSON())
+		if err != nil {
+			log.Printf("Failed to marhsal candidate to json: %v", err)
+			return
+		}
+
+		log.Printf("Send candidate to client: %s", candidateJSON)
+
+		msg := &Message{Type: "ice_candidate", Payload: candidateJSON}
+		s.room.sendToClient(peerID, msg)
+	})
+
 	peerConnection.OnTrack(func(tr *webrtc.TrackRemote, _ *webrtc.RTPReceiver) {
 		// May need to use RTPReceiver in the future, but not now
 		s.onTrackReceived(peerID, tr)
@@ -192,7 +209,57 @@ func (s *SFU) signalConnections() {
 			continue
 		}
 
-		msg := &Message{Type: "offer", Target: peerID, Payload: offerJSON}
+		msg := &Message{Type: "offer", Payload: offerJSON}
 		s.room.sendToClient(peerID, msg)
+	}
+}
+
+func (s *SFU) HandleAnswer(peerID string, msg Message) {
+	answer := webrtc.SessionDescription{}
+
+	if err := json.Unmarshal(msg.Payload, &answer); err != nil {
+		log.Printf("Error unmarshaling answer: %v", err)
+		return
+	}
+
+	log.Printf("Got answer: %v", answer)
+
+	s.listLock.Lock()
+	peer, ok := s.peers[peerID]
+	s.listLock.Unlock()
+
+	if !ok {
+		log.Printf("No peer with peerID %s found when handling browser answer", peerID)
+		return
+	}
+
+	if err := peer.conn.SetRemoteDescription(answer); err != nil {
+		log.Printf("Failed to set remote description: %v", err)
+		return
+	}
+}
+
+func (s *SFU) HandleCandidate(peerID string, msg Message) {
+	candidate := webrtc.ICECandidateInit{}
+
+	if err := json.Unmarshal(msg.Payload, &candidate); err != nil {
+		log.Printf("Error unmarshaling candidate: %v", err)
+		return
+	}
+
+	log.Printf("Got candidate: %v", candidate)
+
+	s.listLock.Lock()
+	peer, ok := s.peers[peerID]
+	s.listLock.Unlock()
+
+	if !ok {
+		log.Printf("No peer with peerID %s found when handling ice candidate", peerID)
+		return
+	}
+
+	if err := peer.conn.AddICECandidate(candidate); err != nil {
+		log.Printf("Error adding ice candidate: %v", err)
+		return
 	}
 }

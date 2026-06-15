@@ -94,11 +94,10 @@ func (r *Room) Run() {
 			}
 		case msg := <-r.broadcast:
 			switch msg.Type {
-			case "offer", "answer", "ice_candidate":
-				// forward message to correct target
-				if target, ok := r.clients[msg.Target]; ok {
-					r.sendToClient(target.id, msg)
-				}
+			case "answer":
+				r.sfu.HandleAnswer(msg.PeerID, msg)
+			case "ice_candidate":
+				r.sfu.HandleCandidate(msg.PeerID, msg)
 			case "play", "pause", "seek":
 				// sync server-side room state
 				var payload struct {
@@ -131,6 +130,8 @@ func (r *Room) Run() {
 						r.sendToClient(member.id, msg)
 					}
 				}
+			default:
+				log.Printf("Unknown message: %+v", msg)
 			}
 		}
 	}
