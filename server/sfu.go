@@ -21,6 +21,14 @@ type SFU struct {
 	room        *Room
 }
 
+func newSFU(room *Room) *SFU {
+	return &SFU{
+		room:        room,
+		peers:       make(map[string]*Peer),
+		localTracks: make(map[string]*webrtc.TrackLocalStaticRTP),
+	}
+}
+
 func (s *SFU) AddPeer(peerID string) {
 	peerConnection, err := webrtc.NewPeerConnection(webrtc.Configuration{})
 	if err != nil {

@@ -35,7 +35,7 @@ func newRoom() *Room {
 		unregister: make(chan *Client),
 		broadcast:  make(chan Message),
 	}
-
+	r.sfu = newSFU(r)
 	go r.Run()
 	return r
 }
