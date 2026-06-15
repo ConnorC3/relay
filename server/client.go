@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	maxMessageSize = 512
+	maxMessageSize = 16 * 1024
 	pongWait       = 60 * time.Second
 	pingPeriod     = (pongWait * 9) / 10
 	writeWait      = 10 * time.Second
@@ -47,9 +47,11 @@ func (c *Client) readPump() {
 	for {
 		_, message, err := c.conn.ReadMessage()
 		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("Error reading message: %v", err)
-			}
+			// if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+			// 	log.Printf("Error reading message: %v", err)
+			// }
+
+			log.Printf("readPump error: %v", err)
 			break
 		}
 
