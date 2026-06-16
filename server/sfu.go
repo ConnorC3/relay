@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"log"
 	"sync"
+	"time"
 
+	"github.com/pion/rtcp"
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v4"
 )
@@ -22,11 +24,13 @@ type SFU struct {
 }
 
 func newSFU(room *Room) *SFU {
-	return &SFU{
+	s := &SFU{
 		room:        room,
 		peers:       make(map[string]*Peer),
 		localTracks: make(map[string]*webrtc.TrackLocalStaticRTP),
 	}
+	s.startKeyFrameDispatcher()
+	return s
 }
 
 func (s *SFU) AddPeer(peerID string) {
@@ -93,6 +97,7 @@ func (s *SFU) onTrackReceived(peerID string, tr *webrtc.TrackRemote) {
 
 	// signalConnections to sync state
 	s.signalConnections()
+	s.dispatchKeyFrame()
 
 	defer s.removeTrack(trackLocal)
 
@@ -158,68 +163,118 @@ func (s *SFU) signalConnections() {
 	s.listLock.Lock()
 	defer func() {
 		s.listLock.Unlock()
-		// may need to dispatch keyframe??
+		s.dispatchKeyFrame()
 	}()
 
-	for peerID, peer := range s.peers {
-		if peer.conn.ConnectionState() == webrtc.PeerConnectionStateClosed {
-			delete(s.peers, peerID)
-			continue
-		}
-
-		existingSenders := make(map[string]bool)
-		for _, sender := range peer.conn.GetSenders() {
-			if sender.Track() == nil {
-				continue
+	attemptSync := func() bool {
+		for peerID, peer := range s.peers {
+			if peer.conn.ConnectionState() == webrtc.PeerConnectionStateClosed {
+				delete(s.peers, peerID)
+				return true
 			}
 
-			existingSenders[sender.Track().ID()] = true
-
-			if _, ok := s.localTracks[sender.Track().ID()]; !ok {
-				if err := peer.conn.RemoveTrack(sender); err != nil {
-					log.Printf("Error removing track: %v", err)
+			existingSenders := make(map[string]bool)
+			for _, sender := range peer.conn.GetSenders() {
+				if sender.Track() == nil {
 					continue
 				}
+
+				existingSenders[sender.Track().ID()] = true
+
+				if _, ok := s.localTracks[sender.Track().ID()]; !ok {
+					if err := peer.conn.RemoveTrack(sender); err != nil {
+						log.Printf("Error removing track: %v", err)
+						return true
+					}
+				}
 			}
+
+			// Make sure we don't receive tracks (A/V) we are sending
+			for _, receiver := range peer.conn.GetReceivers() {
+				if receiver.Track() == nil {
+					continue
+				}
+
+				existingSenders[receiver.Track().ID()] = true
+			}
+
+			// Add tracks we aren't sending yet to the peerConnection
+			for trackID, track := range s.localTracks {
+				if _, ok := existingSenders[trackID]; !ok {
+					if _, err := peer.conn.AddTrack(track); err != nil {
+						log.Printf("Error adding new sending track: %v", err)
+						return true
+					}
+				}
+			}
+
+			offer, err := peer.conn.CreateOffer(nil)
+			if err != nil {
+				log.Printf("Error creating offer: %v", err)
+				return true
+			}
+
+			if err := peer.conn.SetLocalDescription(offer); err != nil {
+				log.Printf("Error setting local description: %v", err)
+				return true
+			}
+
+			offerJSON, err := json.Marshal(offer)
+			if err != nil {
+				log.Printf("Failed to marshal offer to json: %v", err)
+				return true
+			}
+
+			msg := &Message{Type: "offer", Payload: offerJSON}
+			s.room.sendToClient(peerID, msg)
+		}
+		return false
+	}
+
+	for attempt := 0; ; attempt++ {
+		if attempt == 25 {
+			go func() {
+				time.Sleep(time.Second * 3)
+				s.signalConnections()
+			}()
+			return
 		}
 
-		// Make sure we don't receive tracks (A/V) we are sending
+		if !attemptSync() {
+			break
+		}
+	}
+}
+
+func (s *SFU) dispatchKeyFrame() {
+	s.listLock.Lock()
+	defer s.listLock.Unlock()
+
+	for _, peer := range s.peers {
+		// log.Printf("Dispatching PLI to %d receivers for peer %s", len(peer.conn.GetReceivers()), peerID)
 		for _, receiver := range peer.conn.GetReceivers() {
 			if receiver.Track() == nil {
 				continue
 			}
 
-			existingSenders[receiver.Track().ID()] = true
-		}
-
-		// Add tracks we aren't sending yet to the peerConnection
-		for trackID, track := range s.localTracks {
-			if _, ok := existingSenders[trackID]; !ok {
-				if _, err := peer.conn.AddTrack(track); err != nil {
-					log.Printf("Error adding new sending track: %v", err)
-					continue
-				}
+			if err := peer.conn.WriteRTCP([]rtcp.Packet{
+				&rtcp.PictureLossIndication{
+					MediaSSRC: uint32(receiver.Track().SSRC()),
+				},
+			}); err != nil {
+				log.Printf("Error dispatching keyframe: %v", err)
 			}
 		}
-
-		offer, err := peer.conn.CreateOffer(nil)
-		if err != nil {
-			continue
-		}
-
-		if err := peer.conn.SetLocalDescription(offer); err != nil {
-			continue
-		}
-
-		offerJSON, err := json.Marshal(offer)
-		if err != nil {
-			log.Printf("Failed to marshal offer to json: %v", err)
-			continue
-		}
-
-		msg := &Message{Type: "offer", Payload: offerJSON}
-		s.room.sendToClient(peerID, msg)
 	}
+}
+
+func (s *SFU) startKeyFrameDispatcher() {
+	ticker := time.NewTicker(time.Second * 3)
+	go func() {
+		for range ticker.C {
+			s.dispatchKeyFrame()
+		}
+	}()
 }
 
 func (s *SFU) HandleAnswer(peerID string, msg Message) {
