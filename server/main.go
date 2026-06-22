@@ -10,7 +10,7 @@ var addr = flag.String("addr", ":8080", "http service address")
 
 func main() {
 	flag.Parse()
-	hub := newHub()
+	rm := newRoomManager()
 
 	// Register routes
 	http.HandleFunc("/ws/", func(w http.ResponseWriter, r *http.Request) {
@@ -20,7 +20,7 @@ func main() {
 			http.Error(w, "Room ID required", http.StatusBadRequest)
 			return
 		}
-		room := hub.getOrCreateRoom(roomID)
+		room := rm.getOrCreateRoom(roomID)
 		serveWs(room, w, r)
 	})
 

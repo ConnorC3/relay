@@ -5,28 +5,28 @@ import (
 	"sync"
 )
 
-type Hub struct {
+type RoomManager struct {
 	rooms map[string]*Room // room code -> Room struct pointer
 	mu    sync.RWMutex
 }
 
-func newHub() *Hub {
-	return &Hub{
+func newRoomManager() *RoomManager {
+	return &RoomManager{
 		rooms: make(map[string]*Room),
 	}
 }
 
-func (h *Hub) getOrCreateRoom(roomID string) *Room {
-	h.mu.Lock()
-	defer h.mu.Unlock()
+func (rm *RoomManager) getOrCreateRoom(roomID string) *Room {
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
 
-	if room, ok := h.rooms[roomID]; ok {
+	if room, ok := rm.rooms[roomID]; ok {
 		log.Println("Returning existing room")
 		return room
 	}
 
 	room := newRoom()
-	h.rooms[roomID] = room
+	rm.rooms[roomID] = room
 	log.Println("Returning newly created room")
 	return room
 }
