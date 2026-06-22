@@ -1,0 +1,7 @@
+{
+    "name": "Relay",
+    "description": "Lightweight synchronized video streaming with audio/video calling functionality",
+    "manifest_version": 3,
+    "version": "0.1.0",
+    "permissions": ["activeTab"]
+}
