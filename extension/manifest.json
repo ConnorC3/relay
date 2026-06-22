@@ -3,5 +3,20 @@
     "description": "Lightweight synchronized video streaming with audio/video calling functionality",
     "manifest_version": 3,
     "version": "0.1.0",
-    "permissions": ["activeTab"]
+    "permissions": ["activeTab"],
+    "background": {
+        "service_worker": "background.js"
+    },
+    "content_scripts": [
+        {
+            "js": ["content.js"],
+            "matches": [
+                "https://www.youtube.com/*",
+                "https://www.netflix.com/*"
+            ]
+        }
+    ],
+    "action": {
+        "default_popup": "popup/popup.html"
+    }
 }
