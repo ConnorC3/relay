@@ -52,8 +52,9 @@ func (r *Room) sendRoomState(c *Client) {
 	state := map[string]any{
 		"type": "room_state",
 		"payload": map[string]any{
-			"position": currentPos,
-			"playing":  r.playback.Playing,
+			"position":   currentPos,
+			"playing":    r.playback.Playing,
+			"peer_count": len(r.clients),
 		},
 	}
 
