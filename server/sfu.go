@@ -21,6 +21,9 @@ type SFU struct {
 	peers       map[string]*Peer                       // Peer ID -> Peer
 	localTracks map[string]*webrtc.TrackLocalStaticRTP // Track ID -> Track
 	room        *Room
+
+	signalDebounce *time.Timer
+	debounceMu     sync.Mutex
 }
 
 func newSFU(room *Room) *SFU {
@@ -76,7 +79,7 @@ func (s *SFU) AddPeer(peerID string) {
 	s.peers[peerID] = &Peer{conn: peerConnection}
 	s.listLock.Unlock()
 
-	s.signalConnections()
+	s.scheduleSignalConnections()
 }
 
 func (s *SFU) onTrackReceived(peerID string, tr *webrtc.TrackRemote) {
@@ -96,7 +99,7 @@ func (s *SFU) onTrackReceived(peerID string, tr *webrtc.TrackRemote) {
 	s.listLock.Unlock()
 
 	// signalConnections to sync state
-	s.signalConnections()
+	s.scheduleSignalConnections()
 	s.dispatchKeyFrame()
 
 	defer s.removeTrack(trackLocal)
@@ -173,6 +176,12 @@ func (s *SFU) signalConnections() {
 				return true
 			}
 
+			// If we already sent an offer and are waiting for an answer,
+			// skip this peer for now. We will re-negotiate once the answer arrives.
+			if peer.conn.SignalingState() != webrtc.SignalingStateStable {
+				continue
+			}
+
 			existingSenders := make(map[string]bool)
 			for _, sender := range peer.conn.GetSenders() {
 				if sender.Track() == nil {
@@ -246,12 +255,28 @@ func (s *SFU) signalConnections() {
 	}
 }
 
+func (s *SFU) scheduleSignalConnections() {
+	s.debounceMu.Lock()
+	defer s.debounceMu.Unlock()
+
+	if s.signalDebounce != nil {
+		s.signalDebounce.Stop()
+	}
+
+	s.signalDebounce = time.AfterFunc(150*time.Millisecond, func() {
+		s.signalConnections()
+	})
+}
+
 func (s *SFU) dispatchKeyFrame() {
 	s.listLock.Lock()
 	defer s.listLock.Unlock()
 
 	for _, peer := range s.peers {
-		// log.Printf("Dispatching PLI to %d receivers for peer %s", len(peer.conn.GetReceivers()), peerID)
+		if peer.conn.ConnectionState() == webrtc.PeerConnectionStateClosed {
+			continue
+		}
+
 		for _, receiver := range peer.conn.GetReceivers() {
 			if receiver.Track() == nil {
 				continue

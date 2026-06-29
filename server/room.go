@@ -10,6 +10,7 @@ type PlaybackState struct {
 	Position  float64 // stored in seconds
 	Playing   bool
 	UpdatedAt time.Time
+	VideoURL  string
 }
 
 type Message struct {
@@ -44,6 +45,8 @@ func (r *Room) sendRoomState(c *Client) {
 	log.Printf("playback state: position=%.2f playing=%v updatedAt=%v",
 		r.playback.Position, r.playback.Playing, r.playback.UpdatedAt)
 
+	log.Printf("Sending video link to new client: %v", r.playback.VideoURL)
+
 	currentPos := r.playback.Position
 	if r.playback.Playing {
 		currentPos += time.Since(r.playback.UpdatedAt).Seconds()
@@ -55,6 +58,7 @@ func (r *Room) sendRoomState(c *Client) {
 			"position":   currentPos,
 			"playing":    r.playback.Playing,
 			"peer_count": len(r.clients),
+			"video_url":  r.playback.VideoURL,
 		},
 	}
 
@@ -70,6 +74,49 @@ func (r *Room) sendPeerID(c *Client) {
 	r.sendToClient(c.id, msg)
 }
 
+func (r *Room) broadcastPeerCount() {
+	for _, client := range r.clients {
+		msg := map[string]any{
+			"type":    "peer_count",
+			"payload": map[string]any{"count": len(r.clients)},
+		}
+		r.sendToClient(client.id, msg)
+	}
+}
+
+func (r *Room) broadcastPeerLeft(peerID string) {
+	r.sfu.listLock.RLock()
+	peer, ok := r.sfu.peers[peerID]
+	var streamIDs []string
+	if ok {
+		seen := map[string]bool{}
+		for _, trackID := range peer.tracks {
+			if track, exists := r.sfu.localTracks[trackID]; exists {
+				sid := track.StreamID()
+				if !seen[sid] {
+					seen[sid] = true
+					streamIDs = append(streamIDs, sid)
+				}
+			}
+		}
+	}
+	r.sfu.listLock.RUnlock()
+
+	for id, client := range r.clients {
+		if id == peerID {
+			continue
+		}
+		msg := map[string]any{
+			"type": "peer_left",
+			"payload": map[string]any{
+				"peer_id":    peerID,
+				"stream_ids": streamIDs,
+			},
+		}
+		r.sendToClient(client.id, msg)
+	}
+}
+
 func (r *Room) Run() {
 	for {
 		select {
@@ -80,18 +127,20 @@ func (r *Room) Run() {
 			// send room state to client
 			r.sendPeerID(client)
 			r.sendRoomState(client)
-
 			// add peer to sfu
 			r.sfu.AddPeer(client.id)
+			r.broadcastPeerCount()
 
 			log.Printf("Client id: %s", client.id)
 		case client := <-r.unregister:
 			log.Println("Unregistering client")
 
 			if _, ok := r.clients[client.id]; ok {
+				r.broadcastPeerLeft(client.id)
 				delete(r.clients, client.id)
 				close(client.send)
 				r.sfu.RemovePeer(client.id)
+				r.broadcastPeerCount()
 			}
 		case msg := <-r.broadcast:
 			switch msg.Type {
@@ -103,6 +152,7 @@ func (r *Room) Run() {
 				// sync server-side room state
 				var payload struct {
 					Position float64 `json:"position"`
+					VideoURL string  `json:"video_url"`
 				}
 
 				if err := json.Unmarshal(msg.Payload, &payload); err != nil {
@@ -110,6 +160,7 @@ func (r *Room) Run() {
 					continue
 				}
 
+				log.Printf("Playback event: type=%s position=%.2f from peer=%s, video link=%s", msg.Type, payload.Position, msg.PeerID, payload.VideoURL)
 				switch msg.Type {
 				case "play":
 					r.playback.Playing = true
@@ -124,6 +175,9 @@ func (r *Room) Run() {
 				}
 
 				r.playback.UpdatedAt = time.Now()
+				if payload.VideoURL != "" {
+					r.playback.VideoURL = payload.VideoURL
+				}
 
 				// sync playback for all room members
 				for id, member := range r.clients {
