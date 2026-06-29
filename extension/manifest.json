@@ -1,22 +1,47 @@
 {
-    "name": "Relay",
-    "description": "Lightweight synchronized video streaming with audio/video calling functionality",
-    "manifest_version": 3,
-    "version": "0.1.0",
-    "permissions": ["activeTab"],
-    "background": {
-        "service_worker": "background.js"
-    },
-    "content_scripts": [
-        {
-            "js": ["content.js"],
-            "matches": [
-                "https://www.youtube.com/*",
-                "https://www.netflix.com/*"
-            ]
-        }
-    ],
-    "action": {
-        "default_popup": "popup/popup.html"
+  "manifest_version": 3,
+  "name": "Relay",
+  "version": "0.1.0",
+  "description": "Watch videos together with synchronized playback and audio/video calling.",
+
+  "permissions": [
+    "storage",
+    "scripting",
+    "tabs"
+  ],
+
+  "host_permissions": [
+    "https://www.youtube.com/*",
+    "https://www.netflix.com/*"
+  ],
+
+  "background": {
+    "service_worker": "background.js"
+  },
+
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.youtube.com/*",
+        "https://www.netflix.com/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
     }
+  ],
+
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "Relay"
+  },
+
+  "web_accessible_resources": [
+    {
+      "resources": ["sidebar.css"],
+      "matches": [
+        "https://www.youtube.com/*",
+        "https://www.netflix.com/*"
+      ]
+    }
+  ]
 }

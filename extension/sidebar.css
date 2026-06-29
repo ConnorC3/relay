@@ -1,0 +1,116 @@
+#relay-sidebar {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 250px;
+  height: 100vh;
+  background: #111;
+  border-left: 1px solid #222;
+  display: flex;
+  flex-direction: column;
+  z-index: 999999;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 12px;
+  color: #eee;
+}
+
+#relay-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid #222;
+  flex-shrink: 0;
+}
+
+#relay-logo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+#relay-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #1D9E75;
+}
+
+#relay-code {
+  font-size: 11px;
+  color: #666;
+  letter-spacing: 1px;
+}
+
+#relay-videos {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.relay-tile {
+  position: relative;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #000;
+  aspect-ratio: 4/3;
+}
+
+.relay-tile video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.relay-label {
+  position: absolute;
+  bottom: 5px;
+  left: 6px;
+  font-size: 10px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.55);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+#relay-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border-top: 1px solid #222;
+  flex-shrink: 0;
+}
+
+.relay-btn {
+  width: 100%;
+  padding: 7px;
+  background: #1e1e1e;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #eee;
+  font-size: 12px;
+  cursor: pointer;
+  text-align: center;
+}
+
+.relay-btn:hover { background: #2a2a2a; }
+.relay-btn:active { transform: scale(0.97); }
+
+.relay-leave-btn {
+  color: #f07070;
+  border-color: #4a2020;
+}
+
+.relay-leave-btn:hover { background: #2a1a1a; }
+
+/* scrollbar */
+#relay-videos::-webkit-scrollbar { width: 4px; }
+#relay-videos::-webkit-scrollbar-track { background: transparent; }
+#relay-videos::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }

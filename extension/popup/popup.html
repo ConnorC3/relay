@@ -1,17 +1,60 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <link rel="stylesheet" href="popup.css">
+<meta charset="UTF-8">
+<link rel="stylesheet" href="popup.css">
 </head>
 <body>
-    <h2>Relay</h2>
-    <button id="createBtn">Create Room</button>
-    <hr>
-    <input id="codeInput" maxlength="4" placeholder="ABCD">
-    <button id="joinBtn">Join</button>
-    <button id="copyBtn">Copy Code</button>
-    <p id="status"></p>
+    <div class="header">
+    <div class="logo">
+        <div class="dot"></div>
+        Relay
+    </div>
+    <div class="header-right">
+        <span class="peer-count" id="peerCount"></span>
+        <button class="theme-btn" id="themeBtn" aria-label="Toggle theme">☀</button>
+    </div>
+    </div>
+
+    <!-- Idle state -->
+    <div id="idleState">
+    <button id="createBtn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Create room
+    </button>
+
+    <div class="divider">
+        <div class="divider-line"></div>
+        <span>or join</span>
+        <div class="divider-line"></div>
+    </div>
+
+    <div class="join-row">
+        <input type="text" id="codeInput" placeholder="ABCD" maxlength="4" autocomplete="off" spellcheck="false">
+        <button class="join-btn" id="joinBtn">Join</button>
+    </div>
+
+    <div class="status" id="status"></div>
+    </div>
+
+    <!-- Room state -->
+    <div id="roomState" class="hidden">
+    <div class="room-code-box">
+        <div>
+        <div class="room-code-label">Room code</div>
+        <div class="room-code" id="displayCode">----</div>
+        </div>
+        <button class="copy-btn" id="copyBtn">Copy</button>
+    </div>
+
+    <div class="controls-row">
+        <button id="muteBtn">Mute</button>
+        <button id="cameraBtn">Camera</button>
+    </div>
+
+    <button class="leave-btn" id="leaveBtn">Leave room</button>
+    </div>
+
     <script src="popup.js"></script>
 </body>
 </html>

@@ -1,0 +1,235 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* light mode tokens */
+:root {
+--bg:          #ffffff;
+--bg-surface:  #f5f5f5;
+--text:        #111111;
+--text-muted:  #888888;
+--text-hint:   #aaaaaa;
+--border:      #cccccc;
+--border-soft: #e0e0e0;
+--hover:       #f5f5f5;
+--active-bg:   #eeeeee;
+--active-text: #555555;
+--danger:      #e24b4a;
+--danger-border: #f0c0c0;
+--danger-hover:  #fff5f5;
+--accent:      #1D9E75;
+--theme-icon:  '☀';
+}
+
+/* dark mode tokens — applied when body has data-theme="dark"
+    or when system prefers dark and user hasn't overridden */
+body.dark {
+--bg:          #1a1a1a;
+--bg-surface:  #2a2a2a;
+--text:        #eeeeee;
+--text-muted:  #888888;
+--text-hint:   #666666;
+--border:      #444444;
+--border-soft: #333333;
+--hover:       #2a2a2a;
+--active-bg:   #333333;
+--active-text: #aaaaaa;
+--danger:      #f07070;
+--danger-border: #6b3333;
+--danger-hover:  #2a1a1a;
+--accent:      #1D9E75;
+--theme-icon:  '☽';
+}
+
+body {
+width: 220px;
+font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+font-size: 13px;
+background: var(--bg);
+color: var(--text);
+padding: 16px;
+transition: background 0.15s, color 0.15s;
+}
+
+.header {
+display: flex;
+align-items: center;
+justify-content: space-between;
+margin-bottom: 14px;
+}
+
+.header-left {
+display: flex;
+align-items: center;
+gap: 7px;
+}
+
+.logo {
+display: flex;
+align-items: center;
+gap: 7px;
+font-size: 15px;
+font-weight: 500;
+}
+
+.dot {
+width: 8px;
+height: 8px;
+border-radius: 50%;
+background: var(--accent);
+}
+
+.header-right {
+display: flex;
+align-items: center;
+gap: 6px;
+}
+
+.peer-count {
+font-size: 11px;
+color: var(--text-muted);
+}
+
+.theme-btn {
+width: auto;
+padding: 2px 5px;
+border: 0.5px solid var(--border-soft);
+border-radius: 6px;
+background: transparent;
+font-size: 11px;
+color: var(--text-muted);
+cursor: pointer;
+line-height: 1.6;
+}
+
+.theme-btn:hover { background: var(--hover); }
+.theme-btn:active { transform: scale(0.96); }
+
+button {
+width: 100%;
+padding: 8px;
+border: 0.5px solid var(--border);
+border-radius: 8px;
+background: var(--bg);
+font-size: 13px;
+color: var(--text);
+cursor: pointer;
+display: flex;
+align-items: center;
+justify-content: center;
+gap: 6px;
+transition: background 0.1s;
+}
+
+button:hover { background: var(--hover); }
+button:active { transform: scale(0.98); }
+
+.divider {
+display: flex;
+align-items: center;
+gap: 8px;
+margin: 12px 0;
+}
+
+.divider-line {
+flex: 1;
+height: 0.5px;
+background: var(--border-soft);
+}
+
+.divider span {
+font-size: 11px;
+color: var(--text-hint);
+}
+
+.join-row {
+display: flex;
+gap: 6px;
+}
+
+input[type="text"] {
+flex: 1;
+padding: 7px 10px;
+font-size: 14px;
+font-weight: 500;
+letter-spacing: 3px;
+text-transform: uppercase;
+border: 0.5px solid var(--border);
+border-radius: 8px;
+background: var(--bg);
+color: var(--text);
+outline: none;
+width: 100%;
+transition: border-color 0.1s;
+}
+
+input[type="text"]::placeholder { color: var(--text-hint); }
+input[type="text"]:focus { border-color: var(--text-muted); }
+
+.join-btn {
+width: auto;
+padding: 7px 12px;
+flex-shrink: 0;
+}
+
+.status {
+font-size: 11px;
+color: var(--danger);
+margin-top: 8px;
+min-height: 16px;
+}
+
+.room-code-box {
+background: var(--bg-surface);
+border-radius: 8px;
+padding: 10px 12px;
+display: flex;
+align-items: center;
+justify-content: space-between;
+margin-bottom: 12px;
+}
+
+.room-code-label {
+font-size: 11px;
+color: var(--text-muted);
+margin-bottom: 2px;
+}
+
+.room-code {
+font-size: 20px;
+font-weight: 500;
+letter-spacing: 3px;
+color: var(--text);
+}
+
+.copy-btn {
+width: auto;
+padding: 6px 10px;
+font-size: 12px;
+flex-shrink: 0;
+}
+
+.controls-row {
+display: flex;
+gap: 6px;
+margin-bottom: 8px;
+}
+
+.controls-row button {
+flex: 1;
+font-size: 12px;
+padding: 7px;
+}
+
+.controls-row button.active {
+background: var(--active-bg);
+border-color: var(--border);
+color: var(--active-text);
+}
+
+.leave-btn {
+color: var(--danger);
+border-color: var(--danger-border);
+}
+
+.leave-btn:hover { background: var(--danger-hover); }
+
+.hidden { display: none; }
